@@ -1,0 +1,49 @@
+---
+title: "Prioritizing Potential Aquaculture"
+format: html
+editor: visual
+author: Joaquin Sandoval 
+date: 11/26/2025
+---
+
+## **Background** 
+
+Marine aquaculture has the potential to play an important role in the global food supply as a more sustainable protein option than land-based meat production.^[1](https://eds-223-geospatial.github.io/assignments/HW4.html#fn1)^ [Gentry et al.](https://www.nature.com/articles/s41559-017-0257-9) mapped the potential for marine aquaculture globally based on multiple constraints, including ship traffic, dissolved oxygen, and bottom depth. They found that global seafood demand could be met using less than 0.015% of the global ocean area^[2](https://eds-223-geospatial.github.io/assignments/HW4.html#fn2)^
+
+##Suitable growing conditions Oysters
+
+Research has shown that oysters need the following conditions for optimal growth:
+
+sea surface temperature: 11-30°C
+depth: 0-70 meters below sea level
+
+## Suitable growing conditions C. gigantea 
+
+Benthic; depth range 0 - 80 m (Ref. 95344).  Temperate
+
+Feeds on dinoflagellates and detritus (Ref. 112932).
+
+## Suitable growing conditions H. rufescens 
+
+Benthic; depth range 0 - 24 m (Ref. 865).  Subtropical; 8°C - 18°C (Ref. 106839); 43°N - 27°N, 125°W - 114°W (Ref. 106839)
+
+moves across sand and gravel bottoms, from low intertidal to 24 meters in depth (Ref. 865). Predominantly found in or in near rocky macroalgal substrata (Ref. 106839). Feeds on algae (Ref. 105211).
+
+
+Import necessary packages
+
+```{r, output = FALSE}
+library(tidyverse)
+library(dplyr)
+library(sf)
+library(terra)
+library(stars)
+library(tmap)
+library(kableExtra)
+```
+
+Data Import 
+```{r, output = FALSE}
+
+```
+
