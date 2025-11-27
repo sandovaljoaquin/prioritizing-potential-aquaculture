@@ -32,8 +32,9 @@ moves across sand and gravel bottoms, from low intertidal to 24 meters in depth 
 
 Import necessary packages
 
-```{r, output = FALSE}
+```{r, message = FALSE}
 library(tidyverse)
+library(here)
 library(dplyr)
 library(sf)
 library(terra)
@@ -42,8 +43,214 @@ library(tmap)
 library(kableExtra)
 ```
 
-Data Import 
-```{r, output = FALSE}
+## Prepare data
+To start, we need to load all necessary data and make sure it has the coordinate reference system.
+
+shapefile for the West Coast EEZ
+bathymetry raster
+SST rasters
+combine SST rasters into a raster stack
+
+```{r, message = FALSE}
+
+# Import Average Annual SST data from 2008-2012 
+
+sst_2008 <- rast(here("data", "average_annual_sst_2008.tif"))
+sst_2009 <- rast(here("data", "average_annual_sst_2009.tif"))
+sst_2010 <- rast(here("data", "average_annual_sst_2010.tif"))
+sst_2011 <- rast(here("data", "average_annual_sst_2011.tif"))
+sst_2012 <- rast(here("data", "average_annual_sst_2012.tif"))
+
+# Import bathymetry data
+
+depth <- rast(here("data", "depth.tif"))
+
+# Import exclusive economic zones off west coast 
+
+regions <- st_read(here("data", "wc_regions_clean.shp"))
+```
+
+## Process data
+Next, we need to process the SST and depth data so that they can be combined. In this case the SST and depth data have slightly different resolutions, extents, and positions.
+
+find the mean SST from 2008-2012 (e.g. create single raster of average SST)
+convert average SST from Kelvin to Celsius
+hint: subtract by 273.15
+```{r}
+crs(sst_2008) == crs(sst_2009)
+crs(sst_2009) == crs(sst_2010)
+crs(sst_2010) == crs(sst_2011)
+crs(sst_2011) == crs(sst_2012)
+```
+```{r}
+# Create single raster stack of SST 
+
+stacked_sst <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012)
+
+# Find average and convert to Celsius  
+avg_sst_c <- mean(stacked_sst) - 273.15
 
 ```
+ˆ
+crop depth raster to match the extent of the SST raster
+note: the resolutions of the SST and depth data do not match
+resample the depth data to match the resolution of the SST data using the nearest neighbor approach
+check that the depth and SST match in resolution, extent, and coordinate reference system
+hint: can the rasters be stacked?
+
+```{r}
+# Checking if CRS, resolutions, and extents match.
+crs(avg_sst_c) == crs(depth)
+res(avg_sst_c) == res(depth)
+ext(avg_sst_c) == ext(depth)
+
+crs(avg_sst_c) == crs(regions)
+ext(avg_sst_c) == ext(regions)
+
+```
+```{r}
+# Converting CRS of bathymetry data to CRS of avg_sst_c
+
+depth_transform <- project(x = depth, y = avg_sst_c)
+
+# Verify CRS has updated
+if(crs(depth_transform) == crs(avg_sst_c)) {
+print("CRS of bathymetry data has updated.")
+} else {
+warning("CRS of bathymetry data has not updated.")
+}
+
+# Converting CRS of EEZ shapefile data to CRS of avg_sst_c
+
+regions_transform <- st_transform(regions, crs(avg_sst_c))
+
+# Verify CRS has updated
+if(crs(regions_transform) == crs(avg_sst_c)) {
+print("CRS of EEZ region data has updated.")
+} else {
+warning("CRS of EEZ region data has not updated.")
+}
+
+```
+
+```{r}
+# Crop extent of `depth` to extent of `avg_sst_c`
+depth_cropped <- crop(depth_transform, avg_sst_c)
+# Very 'cropped' has fewer values
+if(ncell(avg_sst_c) == nrow(depth_cropped)) {
+warning("Clipping did not remove cells of bathymetry data.")
+} else {
+print("Clipping removed cells of bathymetry data.")
+}
+```
+
+```{r}
+# Resample the depth data to match the resolution of the SST data using the nearest neighbor approach
+
+depth_resampled <- resample(depth_cropped, avg_sst_c, method = "near")
+
+# Very 'depth_resampled' has same resolution as sst raster
+
+if (all(res(avg_sst_c) == res(depth_resampled))) {
+  print("Resolutions now match.")
+} else {
+  warning("Resolutions do not match.")
+}
+
+```
+
+
+## Find suitable locations
+To find suitable locations for marine aquaculture, we’ll need to find locations that are suitable in terms of both SST and depth.
+
+reclassify SST and depth data into locations that are suitable for oysters
+hint: set suitable values to 1 and unsuitable values to 0
+find locations that satisfy both SST and depth conditions
+
+```{r}
+# Oyster reclassification matrix for temperature 
+
+oyster_temp_rcl <- matrix(c(-Inf, 11, 0,
+                            11, 30, 1,
+                            30, Inf, 0), ncol = 3, byrow = TRUE)
+
+# Reclassify oyster temperature 
+reclassified_oyster_temp <- classify(avg_sst_c, rcl = oyster_temp_rcl)
+
+# Oyseter reclassification matrix for depth 
+
+oyster_depth_rcl <- matrix(c(-Inf, -70, 0,
+                             -70, 0, 1,
+                             0, Inf, 0), ncol = 3, byrow = TRUE)
+
+# Reclassify oyster depth
+reclassified_oyster_depth <- classify(depth_resampled, rcl = oyster_depth_rcl )
+
+```
+
+
+** 
+Tip: finding suitable locations
+The SST and depth rasters should now identify the suitability of locations as 0 or 1. To find locations that have both suitable temperature and depth, you can use map algebra. One idea is to multiply the values of the cells, using the lapp() function.** 
+
+```{r}
+# Finding suitable cells using map algebra 
+
+suitable_oyster_env <- reclassified_oyster_temp * reclassified_oyster_depth
+```
+
+```{r}
+
+tm_shape(suitable_oyster_env) + 
+  tm_raster() 
+```
+
+
+## Determine the most suitable EEZ
+
+We want to determine the total suitable area within each EEZ in order to rank zones by priority. To do so, we need to find the total area of suitable locations within each EEZ.
+
+select suitable cells within West Coast EEZs
+find area of grid cells
+find the total suitable area within each EEZ
+hint: it might be helpful to rasterize the EEZ data
+```{r}
+names(regions_transform)
+
+oregon <- regions_transform |> 
+  filter(rgn_key == "OR")
+
+ca_n <- regions_transform |> 
+  filter(rgn_key == "CA-N")
+
+ca_c <- regions_transform |> 
+  filter(rgn_key == "CA-C")
+
+ca_s <- regions_transform |> 
+  filter(rgn_key == "CA-S")
+
+washington <-regions_transform |> 
+  filter(rgn_key == "WA")
+
+```
+
+
+```{r}
+# Rasterize EEZ region data 
+
+oregon_raster <- rasterize(oregon, suitable_oyster_env)
+ca_n_raster <- rasterize(ca_n, suitable_oyster_env)
+ca_c_raster <- rasterize(ca_c, suitable_oyster_env)
+ca_s_raster <- rasterize(ca_s, suitable_oyster_env)
+washington_raster <- rasterize(washington, suitable_oyster_env)
+
+```
+
+ˆ
+```{r}
+# Zonal algebra 
+
+suitable_oyster_oregon <- suitable_oyster_env * oregon_raster
+```
+
 
