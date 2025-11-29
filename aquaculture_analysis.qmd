@@ -1,34 +1,14 @@
 ---
-title: "Prioritizing Potential Aquaculture"
-format: html
+title: "Prioritizing Potential Aquaculture Zones"
+format: docx
 editor: visual
 author: Joaquin Sandoval 
-date: 11/26/2025
+date: 11/29/2025
 ---
 
 ## **Background** 
 
 Marine aquaculture has the potential to play an important role in the global food supply as a more sustainable protein option than land-based meat production.^[1](https://eds-223-geospatial.github.io/assignments/HW4.html#fn1)^ [Gentry et al.](https://www.nature.com/articles/s41559-017-0257-9) mapped the potential for marine aquaculture globally based on multiple constraints, including ship traffic, dissolved oxygen, and bottom depth. They found that global seafood demand could be met using less than 0.015% of the global ocean area^[2](https://eds-223-geospatial.github.io/assignments/HW4.html#fn2)^
-
-##Suitable growing conditions Oysters
-
-Research has shown that oysters need the following conditions for optimal growth:
-
-sea surface temperature: 11-30°C
-depth: 0-70 meters below sea level
-
-## Suitable growing conditions C. gigantea 
-
-Benthic; depth range 0 - 80 m (Ref. 95344).  Temperate
-
-Feeds on dinoflagellates and detritus (Ref. 112932).
-
-## Suitable growing conditions H. rufescens 
-
-Benthic; depth range 0 - 24 m (Ref. 865).  Subtropical; 8°C - 18°C (Ref. 106839); 43°N - 27°N, 125°W - 114°W (Ref. 106839)
-
-moves across sand and gravel bottoms, from low intertidal to 24 meters in depth (Ref. 865). Predominantly found in or in near rocky macroalgal substrata (Ref. 106839). Feeds on algae (Ref. 105211).
-
 
 Import necessary packages
 
@@ -44,14 +24,9 @@ library(kableExtra)
 ```
 
 ## Prepare data
-To start, we need to load all necessary data and make sure it has the coordinate reference system.
+Load all necessary data and make sure it has the coordinate reference system.
 
-shapefile for the West Coast EEZ
-bathymetry raster
-SST rasters
-combine SST rasters into a raster stack
-
-```{r, message = FALSE}
+```{r}
 
 # Import Average Annual SST data from 2008-2012 
 
@@ -70,18 +45,16 @@ depth <- rast(here("data", "depth.tif"))
 regions <- st_read(here("data", "wc_regions_clean.shp"))
 ```
 
-## Process data
-Next, we need to process the SST and depth data so that they can be combined. In this case the SST and depth data have slightly different resolutions, extents, and positions.
-
-find the mean SST from 2008-2012 (e.g. create single raster of average SST)
-convert average SST from Kelvin to Celsius
-hint: subtract by 273.15
 ```{r}
 crs(sst_2008) == crs(sst_2009)
 crs(sst_2009) == crs(sst_2010)
 crs(sst_2010) == crs(sst_2011)
 crs(sst_2011) == crs(sst_2012)
 ```
+## Process data
+
+Find the mean SST from 2008-2012 (creating single raster stack of average SST) and convert average SST from Kelvin to Celsius by subtracting 273.15.
+
 ```{r}
 # Create single raster stack of SST 
 
@@ -92,14 +65,11 @@ avg_sst_c <- mean(stacked_sst) - 273.15
 
 ```
 ˆ
-crop depth raster to match the extent of the SST raster
-note: the resolutions of the SST and depth data do not match
-resample the depth data to match the resolution of the SST data using the nearest neighbor approach
-check that the depth and SST match in resolution, extent, and coordinate reference system
-hint: can the rasters be stacked?
+Process the SST, depth, and EEZ data so that they can be combined. In this case the SST and depth data have slightly different resolutions, extents, and positions. The CRS and extent of the EEZ shapefile need to updated as well. All need to match in order to proceed. 
+
 
 ```{r}
-# Checking if CRS, resolutions, and extents match.
+# Checking if CRS, resolutions, and extents of all data match.
 crs(avg_sst_c) == crs(depth)
 res(avg_sst_c) == res(depth)
 ext(avg_sst_c) == ext(depth)
@@ -134,9 +104,12 @@ warning("CRS of EEZ region data has not updated.")
 ```
 
 ```{r}
-# Crop extent of `depth` to extent of `avg_sst_c`
+# Crop extent of bathymetry data to extent of avg_sst_c
+
 depth_cropped <- crop(depth_transform, avg_sst_c)
-# Very 'cropped' has fewer values
+
+# Very 'depth_cropped' has fewer values
+
 if(ncell(avg_sst_c) == nrow(depth_cropped)) {
 warning("Clipping did not remove cells of bathymetry data.")
 } else {
@@ -161,11 +134,14 @@ if (all(res(avg_sst_c) == res(depth_resampled))) {
 
 
 ## Find suitable locations
-To find suitable locations for marine aquaculture, we’ll need to find locations that are suitable in terms of both SST and depth.
 
-reclassify SST and depth data into locations that are suitable for oysters
-hint: set suitable values to 1 and unsuitable values to 0
-find locations that satisfy both SST and depth conditions
+To find suitable locations for marine aquaculture, locations must satisfy conditions for both SST and depth.
+
+Reclassify SST and depth data into locations that are suitable for oysters
+
+Oysters have optimal growth at depths between 0-70 meters below sea level and between 11-30°C. 
+
+Create a reclassification matrix for both temperature and depth. 
 
 ```{r}
 # Oyster reclassification matrix for temperature 
@@ -175,23 +151,22 @@ oyster_temp_rcl <- matrix(c(-Inf, 11, 0,
                             30, Inf, 0), ncol = 3, byrow = TRUE)
 
 # Reclassify oyster temperature 
+
 reclassified_oyster_temp <- classify(avg_sst_c, rcl = oyster_temp_rcl)
 
-# Oyseter reclassification matrix for depth 
+# Oyster reclassification matrix for depth 
 
 oyster_depth_rcl <- matrix(c(-Inf, -70, 0,
                              -70, 0, 1,
                              0, Inf, 0), ncol = 3, byrow = TRUE)
 
 # Reclassify oyster depth
+
 reclassified_oyster_depth <- classify(depth_resampled, rcl = oyster_depth_rcl )
 
 ```
 
-
-** 
-Tip: finding suitable locations
-The SST and depth rasters should now identify the suitability of locations as 0 or 1. To find locations that have both suitable temperature and depth, you can use map algebra. One idea is to multiply the values of the cells, using the lapp() function.** 
+To find suitable locations in which both depth and temperature requirements are met, multiply both reclassified variables. The following produces a raster in which the areas along the West Coast that are suitable for oysters are shaded. 
 
 ```{r}
 # Finding suitable cells using map algebra 
@@ -199,58 +174,135 @@ The SST and depth rasters should now identify the suitability of locations as 0 
 suitable_oyster_env <- reclassified_oyster_temp * reclassified_oyster_depth
 ```
 
-```{r}
-
-tm_shape(suitable_oyster_env) + 
-  tm_raster() 
-```
-
-
 ## Determine the most suitable EEZ
 
-We want to determine the total suitable area within each EEZ in order to rank zones by priority. To do so, we need to find the total area of suitable locations within each EEZ.
+Determine the total suitable area within each EEZ in order to rank zones by priority. To do so, find the total area of suitable locations within each EEZ.
 
-select suitable cells within West Coast EEZs
-find area of grid cells
-find the total suitable area within each EEZ
-hint: it might be helpful to rasterize the EEZ data
-```{r}
-names(regions_transform)
+Select suitable cells within West Coast EEZs, find area of grid cells, and find the total suitable area within each EEZ. 
 
-oregon <- regions_transform |> 
-  filter(rgn_key == "OR")
 
-ca_n <- regions_transform |> 
-  filter(rgn_key == "CA-N")
+```{r, warning = FALSE, message = FALSE, output = FALSE}
+# Mask to find suitable cells within EEZ area 
 
-ca_c <- regions_transform |> 
-  filter(rgn_key == "CA-C")
+suitable_cells <- mask(suitable_oyster_env, regions_transform)
 
-ca_s <- regions_transform |> 
-  filter(rgn_key == "CA-S")
+# Rasterize regions data 
 
-washington <-regions_transform |> 
-  filter(rgn_key == "WA")
+regions_raster <- rasterize(regions_transform, suitable_cells, field = "rgn")
+
+# Finding area of suitable cells 
+
+area_raster <- cellSize(suitable_cells, unit = "km")
+
+# Zonal algebra: Finding area of suitable cells within each EEZ zone: 
+
+area_per_region <- zonal(suitable_cells *  area_raster, regions_raster, fun = "sum", na.rm = TRUE) |> 
+  rename("suitable_area_km2" = mean)
+
+# Left join to original regions dataframe 
+
+regions_area <- left_join(regions_transform, area_per_region, by = "rgn")
+
+# Creating summary table ranking each EEZ
+regions_area |> 
+  select(c("rgn", "suitable_area_km2")) |> 
+  arrange(desc(suitable_area_km2)) |> 
+  st_drop_geometry() |> 
+  kable(col.names = c("Region", "Suitable Area (km²)")) |> 
+  kable_classic_2()
+```
+
+```{r, warning = FALSE, message = FALSE, ouput = FALSE}
+# Plot 
+
+tm_shape(regions_area) +
+  tm_polygons("suitable_area_km2",
+              palette = "Greens",
+              style = "cont",
+              title = "Suitable area (km²)") +
+  tm_compass(position = c("left", "bottom")) + 
+  tm_scalebar(position = c("left", "bottom")) + 
+  tm_title("West Coast Exclusive Economic Zones for Oysters") + 
+  tm_text("rgn") + 
+  tm_basemap("Esri.OceanBasemap")
+              
 
 ```
 
+## Creating Function to Find Suitable EEZ's for California Spiny Lobster - Panulirus Interruptus.
 
-```{r}
-# Rasterize EEZ region data 
+After processing the data, create a generalizable function that takes the arguments of minimum temperature, maximum temperature, maximum depth, minimum depth, and species. This function will identify areas suitable for any species within each EEZ and rank them accordingly. The following code produces the same map as above for the California Spiny Lobster - Panulirus interruptus which occupies habitat between 0-150 meters below sea level and between 12-24°C. 
 
-oregon_raster <- rasterize(oregon, suitable_oyster_env)
-ca_n_raster <- rasterize(ca_n, suitable_oyster_env)
-ca_c_raster <- rasterize(ca_c, suitable_oyster_env)
-ca_s_raster <- rasterize(ca_s, suitable_oyster_env)
-washington_raster <- rasterize(washington, suitable_oyster_env)
+```{r, output = FALSE}
+suitable_habitat <- function(mintemp, maxtemp, maxdepth, mindepth, species_name) { 
+  
+# Species reclassification matrix for temperature 
+  
+species_temp_rcl <- matrix(c(-Inf, mintemp, 0,
+                              mintemp, maxtemp, 1,
+                              maxtemp, Inf, 0), ncol = 3, byrow = TRUE)
+  
+# Reclassify temperature 
 
+reclassified_species_temp <- classify(avg_sst_c, rcl = species_temp_rcl)
+  
+# Species reclassification matrix for depth 
+  
+species_depth_rcl <- matrix(c(-Inf, maxdepth, 0,
+                             maxdepth, mindepth, 1,
+                             mindepth, Inf, 0), ncol = 3, byrow = TRUE)
+  
+# Reclassify species depth
+  
+reclassified_species_depth <- classify(depth_resampled, rcl = species_depth_rcl )
+  
+# Finding suitable cells using map algebra 
+
+suitable_env <- reclassified_species_temp * reclassified_species_depth
+
+# Mask to find suitable cells within EEZ area 
+
+suitable_cells <- mask(suitable_env, regions_transform)
+
+# Rasterize regions data 
+
+regions_raster <- rasterize(regions_transform, suitable_cells, field = "rgn")
+
+
+# Finding area of suitable cells 
+
+area_raster <- cellSize(suitable_cells, unit = "km")
+
+# Zonal algebra: Finding area of suitable cells within each EEZ zone: 
+
+area_per_region <- zonal(suitable_cells *  area_raster, regions_raster, fun = "sum", na.rm = TRUE) |> 
+  rename("suitable_area_km2" = mean)
+
+
+# Left join to original regions dataframe 
+
+regions_area <- left_join(regions_transform, area_per_region, by = "rgn")
+
+
+# Plot
+
+tm_shape(regions_area) +
+  tm_polygons("suitable_area_km2",
+              palette = "Greens",
+              style = "cont",
+              title = "Suitable area (km²)") +
+  tm_compass(position = c("left", "bottom")) + 
+  tm_scalebar(position = c("left", "bottom")) + 
+  tm_title(paste("West Coast Exclusive Economic Zones for", species_name)) + 
+  tm_text("rgn") + 
+  tm_basemap("Esri.OceanBasemap")
+  
+}
+
+suitable_habitat(12, 24, -150, 0, "Panulirus interruptus")
 ```
 
-ˆ
-```{r}
-# Zonal algebra 
+## Interpretations 
 
-suitable_oyster_oregon <- suitable_oyster_env * oregon_raster
-```
-
+After processing and analyzing the data, the EEZ regions most suitable for aquaculture of several oyster species and the California Spiny Lobster were identified. For oysters, the regions ranked by total suitable area are: Central California > Southern California > Washington > Oregon > Northern California. For the California Spiny Lobster, the habitat suitability function 'suitable_habitat' produced a second map. The regions ranked by suitable area are: Southern California > Central California > Oregon > Washington > Northern California. 
 
