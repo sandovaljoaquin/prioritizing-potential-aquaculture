@@ -26,7 +26,7 @@ library(kableExtra)
 ## Prepare data
 Load all necessary data and make sure it has the coordinate reference system.
 
-```{r}
+```{r, output = FALSE}
 
 # Import Average Annual SST data from 2008-2012 
 
@@ -64,7 +64,7 @@ stacked_sst <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012)
 avg_sst_c <- mean(stacked_sst) - 273.15
 
 ```
-ˆ
+
 Process the SST, depth, and EEZ data so that they can be combined. In this case the SST and depth data have slightly different resolutions, extents, and positions. The CRS and extent of the EEZ shapefile need to updated as well. All need to match in order to proceed. 
 
 
@@ -204,11 +204,13 @@ area_per_region <- zonal(suitable_cells *  area_raster, regions_raster, fun = "s
 regions_area <- left_join(regions_transform, area_per_region, by = "rgn")
 
 # Creating summary table ranking each EEZ
+
 regions_area |> 
   select(c("rgn", "suitable_area_km2")) |> 
   arrange(desc(suitable_area_km2)) |> 
   st_drop_geometry() |> 
-  kable(col.names = c("Region", "Suitable Area (km²)")) |> 
+  kable(col.names = c("Region", "Suitable Area (km²)"), 
+        caption  = "Ranked Economic Exclusive Zones for Oyster Aquaculture")|> 
   kable_classic_2()
 ```
 
@@ -233,7 +235,8 @@ tm_shape(regions_area) +
 
 After processing the data, create a generalizable function that takes the arguments of minimum temperature, maximum temperature, maximum depth, minimum depth, and species. This function will identify areas suitable for any species within each EEZ and rank them accordingly. The following code produces the same map as above for the California Spiny Lobster - Panulirus interruptus which occupies habitat between 0-150 meters below sea level and between 12-24°C. 
 
-```{r, output = FALSE}
+```{r, warning = FALSE}
+tmap_mode("view")
 suitable_habitat <- function(mintemp, maxtemp, maxdepth, mindepth, species_name) { 
   
 # Species reclassification matrix for temperature 
@@ -283,7 +286,7 @@ area_per_region <- zonal(suitable_cells *  area_raster, regions_raster, fun = "s
 
 regions_area <- left_join(regions_transform, area_per_region, by = "rgn")
 
-
+ 
 # Plot
 
 tm_shape(regions_area) +
