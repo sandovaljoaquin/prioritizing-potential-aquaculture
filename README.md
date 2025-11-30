@@ -31,4 +31,3 @@ Bathymetry data was obtained from: General Bathymetric Chart of the Oceans (GEBC
 Maritime boundaries using Exclusive Economic Zones off of the west coast of US were obtained from Marineregions.org.
 
 Panulirus interruptus depth and temperature ranges were acquired from https://www.sealifebase.se/summary/Panulirus-interruptus.html
-Panulirus interruptus temperature range was acquired from https://www.sealifebase.se/summary/Panulirus-interruptus.html
