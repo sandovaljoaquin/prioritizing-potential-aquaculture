@@ -2,19 +2,7 @@
 
 The purpose of this repository is to prioritize Economic Exclusive Zones along the west coast of the U.S. for aquaculture of several species of oyster and the California Spiny Lobster (Panulirus interruptus). Raster data for bathymetry and sea surface temperature is processed and combined to calculate the area in each zone that would be suitable for aquaculture. 
 
-Content:
-└─── README.md
-└─── qmd/Rmd/Proj files
-└─── aquaculture_analysis.qmd 
-|   .gitignore
-    └───data
-        └─── wc_regions_clean.shp
-        └─── depth.tif
-        └─── average_annual_sst_2008.tif
-        └─── average_annual_sst_2009.tif
-        └─── average_annual_sst_2010.tif
-        └─── average_annual_sst_2011.tif
-        └─── average_annual_sst_2012.tif
+<img width="885" height="256" alt="tree" src="https://github.com/user-attachments/assets/d01a1946-481d-4444-b6df-698b7201c67c" />
 
 Data Access: 
 
