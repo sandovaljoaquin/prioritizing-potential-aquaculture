@@ -1,6 +1,6 @@
 # Prioritizing Potential Aquaculture Zones along the United States West Coast 
 
-The purpose of this repository is to prioritize Economic Exclusive Zones along the west coast of the U.S. for aquaculture of several species of oyster and the California Spiny Lobster (Panulirus interruptus). Raster data for bathymetry and sea surface temperature is processed and combined to calculate the area in each zone that would be suitable for aquaculture. 
+The purpose of this repository is to prioritize Economic Exclusive Zones along the west coast of the U.S. for aquaculture of several species of oyster and the California Spiny Lobster (*Panulirus interruptus*). Raster data for bathymetry and sea surface temperature is processed and combined to calculate the area in each zone that would be suitable for aquaculture. 
 
 <img width="885" height="256" alt="tree" src="https://github.com/user-attachments/assets/d01a1946-481d-4444-b6df-698b7201c67c" />
 
