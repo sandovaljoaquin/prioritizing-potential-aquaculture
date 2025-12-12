@@ -3,21 +3,32 @@ title: "Prioritizing Potential Aquaculture Zones"
 format: html
 editor: visual
 author: Joaquin Sandoval 
-date: 12/06/2025
+date: 12/12/2025
 image: lobster.jpeg
+code-fold: true
 ---
 
-## **Background**
+```{r, echo = FALSE}
+knitr::include_graphics("aquaculture.jpeg")
+```
 
-Marine aquaculture has the potential to play an important role in the global food supply as a more sustainable protein option than land-based meat production ^1^ [Gentry et al.](https://www.nature.com/articles/s41559-017-0257-9) mapped the potential for marine aquaculture globally based on multiple constraints, including ship traffic, dissolved oxygen, and bottom depth. They found that global seafood demand could be met using less than 0.015% of the global ocean area ^2^. Additionally, aquaculture contributed \$885.7 million (USD) to the U.S Western Region and supported more than 6,000 jobs in 2022 ^3^. Shellfish alone, accounted for \$360.6 million of this total amount. Placement of aquaculture farms along the coast for a particular species needs to be given special consideration. In the following analysis, bathymetry data and average sea surface temperature data while be combined to estimate the total amount of suitable aquaculture area for a species within West Coast Economic Zones given their optimal depth and temperature ranges.
+NOAA Supports Development of Offshore Aquaculture in Southern California
 
-**Sea surface temperature (SST)**: raster data from the years 2008 to 2012 to characterize the average sea surface temperature within the region generated from [NOAA’s 5km Daily Global Satellite Sea Surface Temperature Anomaly v3.1](https://coralreefwatch.noaa.gov/product/5km/index_5km_ssta.php).
+## Background
 
-**Bathymetry data**: raster data of ocean depth retrived from [General Bathymetric Chart of the Oceans (GEBCO)](https://www.gebco.net/data_and_products/gridded_bathymetry_data/#area).
+Marine aquaculture could become a key contributor to the world’s food supply, offering a more sustainable protein source than terrestrial meat production.^1^ Gentry  et  al. mapped the global potential for marine aquaculture by considering constraints such as ship traffic, dissolved‑oxygen levels, and seabed depth. Their analysis showed that the projected demand for seafood could be satisfied using under 0.015 % of the planet’s ocean surface.^2^ Additionally, aquaculture contributed \$885.7 million (USD) to the U.S Western Region and supported more than 6,000 jobs in 2022.^3^ Shellfish alone, accounted for \$360.6 million of this total amount. Placement of aquaculture farms along the coast for a particular species needs to be given special consideration. In the following analysis, bathymetry data and average sea surface temperature data while be combined to estimate the total amount of suitable aquaculture area for a species within West Coast Exclusive Economic Zones given their optimal depth and temperature ranges. Exclusive Economic Zones (EEZs) are areas in which the U.S. and other coastal nations have jurisdiction over natural resources.^4^
 
-**Exclusive Economic Zones**: shapefiles of West coast regions of US from [Marineregions.org](https://www.marineregions.org/eez.php). These regions are Washington, Oregon, Northern California, Central California, and Southern California.
+## Data
 
-Import necessary packages
+**Sea surface temperature (SST)**: raster data from the years 2008 to 2012 to characterize the average sea surface temperature within the region generated from [NOAA’s 5km Daily Global Satellite Sea Surface Temperature Anomaly v3.1](https://coralreefwatch.noaa.gov/product/5km/index_5km_ssta.php).^5^
+
+**Bathymetry data**: raster data of ocean depth retrieved from [General Bathymetric Chart of the Oceans (GEBCO)](https://www.gebco.net/data_and_products/gridded_bathymetry_data/#area).^6^
+
+**Exclusive Economic Zones (EEZs)**: shapefiles of West coast regions of US from [Marineregions.org](https://www.marineregions.org/eez.php). These regions are Washington, Oregon, Northern California, Central California, and Southern California.^7^
+
+## Prepare data
+
+Import necessary packages.
 
 ```{r, message = FALSE}
 
@@ -33,13 +44,11 @@ library(kableExtra)
 library(patchwork)
 ```
 
-```{r,message = FALSE}
+```{r,message = FALSE, echo = FALSE}
 tmap_mode("view")
 ```
 
-## Prepare data
-
-Load all necessary data and make sure it has the coordinate reference system.
+Load all necessary data.
 
 ```{r, output = FALSE}
 
@@ -59,17 +68,22 @@ depth <- rast(here("data", "depth.tif"))
 
 regions <- st_read(here("data", "wc_regions_clean.shp"))
 ```
-
-```{r}
-crs(sst_2008) == crs(sst_2009)
-crs(sst_2009) == crs(sst_2010)
-crs(sst_2010) == crs(sst_2011)
-crs(sst_2011) == crs(sst_2012)
-```
-
 ## Process data
 
-Find the mean SST from 2008-2012 (creating single raster stack of average SST) and convert average SST from Kelvin to Celsius by subtracting 273.15.
+Processing begins with the sea‑surface‑temperature (SST) raster data. When working with multiple geospatial layers, the first and most important step is to confirm that every dataset uses the same coordinate reference system (CRS). Even though the SST rasters come from the same source and are probably already aligned, the CRS of each layer should be explicitly checked to guarantee consistency before proceeding.
+
+```{r}
+cat(
+  "CRS(sst_2008) == CRS(sst_2009):", crs(sst_2008) == crs(sst_2009), "\n",
+  "CRS(sst_2009) == CRS(sst_2010):", crs(sst_2009) == crs(sst_2010), "\n",
+  "CRS(sst_2010) == CRS(sst_2011):", crs(sst_2010) == crs(sst_2011), "\n",
+  "CRS(sst_2011) == CRS(sst_2012):", crs(sst_2011) == crs(sst_2012), "\n")
+
+print(crs(sst_2008))
+```
+The output shows that each yearly SST raster shares the same CRS (EPSG 9122), confirming a consistent projection. 
+
+Next, the rasters for 2008–2012 are merged into a single stack, the per‑pixel mean across those years is calculated, and the resulting values are converted from Kelvin to Celsius by subtracting **273.15 °C**. This produces a single raster representing the average sea‑surface temperature (°C) for the 2008–2012 period.
 
 ```{r}
 # Create single raster stack of SST 
@@ -81,19 +95,24 @@ avg_sst_c <- mean(stacked_sst) - 273.15
 
 ```
 
-Process the SST, depth, and EEZ data so that they can be combined. In this case the SST and depth data have slightly different resolutions, extents, and positions. The CRS and extent of the EEZ shapefile need to updated as well. All need to match in order to proceed.
+Now the SST, depth, and EEZ data need to be processed so they can be combined. All datasets must share the same CRS, extent, and resolution. A check will be run to determine what modifications are required before merging the datasets.
 
 ```{r}
 # Checking if CRS, resolutions, and extents of all data match.
-crs(avg_sst_c) == crs(depth)
-res(avg_sst_c) == res(depth)
-ext(avg_sst_c) == ext(depth)
 
-crs(avg_sst_c) == crs(regions)
-ext(avg_sst_c) == ext(regions)
+cat(
+  "CRS(avg_sst_c) == CRS(depth):", crs(avg_sst_c) == crs(depth), "\n",
+  "RES(avg_sst_c) == RES(depth):", res(avg_sst_c) == res(depth), "\n",
+  "EXT(avg_sst_c) == EXT(depth):", ext(avg_sst_c) == ext(depth), "\n",
+  "CRS(avg_sst_c) == CRS(regions):", crs(avg_sst_c) == crs(regions), "\n",
+  "EXT(avg_sst_c) == EXT(regions):", ext(avg_sst_c) == ext(regions), "\n"
+)
 
 ```
+The output shows that the SST and depth data have different CRS, resolution, and extent, and that the CRS and extent of the EEZ shapefile also need to be updated. Because a shapefile does not have a raster resolution, that factor can be ignored. All layers must be consistent to proceed.
 
+First, the CRS of both the depth raster and the EEZ shapefile should be updated to match the CRS of the averaged SST raster stack.
+ 
 ```{r}
 # Converting CRS of bathymetry data to CRS of avg_sst_c
 
@@ -119,6 +138,8 @@ warning("CRS of EEZ region data has not updated.")
 
 ```
 
+Now that the CRS of all datasets has been updated, the depth raster will be cropped to the extent of the averaged SST raster stack.
+
 ```{r}
 # Crop extent of bathymetry data to extent of avg_sst_c
 
@@ -132,6 +153,8 @@ warning("Clipping did not remove cells of bathymetry data.")
 print("Clipping removed cells of bathymetry data.")
 }
 ```
+
+The final step is matching the resolution. The depth data will be resampled to align with the resolution of the averaged SST dataset.
 
 ```{r}
 # Resample the depth data to match the resolution of the SST data using the nearest neighbor approach
@@ -147,16 +170,11 @@ if (all(res(avg_sst_c) == res(depth_resampled))) {
 }
 
 ```
+Now that the datasets are consistent, the analysis can proceed.
 
-## Find suitable locations for Oyster Aquaculture
+## Find suitable locations for Oyster Aquaculture along the West Coast
 
-To find suitable locations for marine aquaculture, locations must satisfy conditions for both SST and depth.
-
-Reclassify SST and depth data into locations that are suitable for oysters
-
-Oysters have optimal growth at depths between 0-70 meters below sea level and between 11-30°C.
-
-Create a reclassification matrix for both temperature and depth.
+To identify suitable locations for marine aquaculture of a given species, sites must meet both SST and depth criteria. The SST and depth layers should be reclassified into areas appropriate for oysters, which grow best at depths of **0–70 m** below sea level and temperatures of **11–30 °C**. A reclassification matrix for temperature and depth can then be created and applied to the rasters using the specified values.
 
 ```{r}
 # Oyster reclassification matrix for temperature 
@@ -181,7 +199,7 @@ reclassified_oyster_depth <- classify(depth_resampled, rcl = oyster_depth_rcl )
 
 ```
 
-To find suitable locations in which both depth and temperature requirements are met, multiply both reclassified variables. The following produces a raster in which the areas along the West Coast that are suitable for oysters are shaded.
+To locate areas where both depth and temperature requirements are satisfied, the two reclassified rasters are multiplied. The resulting raster highlights suitable oyster habitats along the West Coast.
 
 ```{r}
 # Finding suitable cells using map algebra 
@@ -189,11 +207,18 @@ To find suitable locations in which both depth and temperature requirements are 
 suitable_oyster_env <- reclassified_oyster_temp * reclassified_oyster_depth
 ```
 
-## Determine the most suitable EEZ
+## Determine the most suitable EEZs
 
-Determine the total suitable area within each EEZ in order to rank zones by priority. To do so, find the total area of suitable locations within each EEZ.
+The total suitable area within each EEZ will be calculated to rank zones by priority. This involves determining the combined area (km²) of all cells that meet the oyster‑suitability criteria inside each EEZ.
 
-Select suitable cells within West Coast EEZs, find area of grid cells, and find the total suitable area within each EEZ.
+**Steps**
+
+1. **Mask the suitability raster by the West‑Coast EEZs** – keep only cells that fall within the EEZ polygons.  
+2. **Identify suitable cells** – extract cells with a value of 1 (or TRUE) from the masked raster.  
+3. **Compute the area of each raster cell** – use the raster’s resolution and convert to square kilometers.  
+4. **Summarize by EEZ** – sum the cell areas for each EEZ polygon to obtain the total suitable habitat (km²) per EEZ.  
+
+The resulting table and map will list each West‑Coast EEZ alongside its corresponding suitable oyster‑farming area, providing a quantitative basis for prioritizing management or development efforts.
 
 ```{r, warning = FALSE, message = FALSE, results='asis'}
 # Mask to find suitable cells within EEZ area 
@@ -244,14 +269,10 @@ tm_shape(regions_area) +
 
 ```
 
-## Oyster Ranked Aquaculture Zones
 
-The table and map together illustrate the spatial distribution of suitable habitat for oysters across West Coast Exclusive Economic Zones (EEZs). Central California contains the largest extent of suitable area, totaling approximately 3,657 km². Southern California follows with about 3,062 km². Washington and Oregon exhibit more moderate levels of suitable habitat—roughly 2,436 km² and 1,029 km², respectively—while Northern California shows the smallest area at approximately 194 km².
+## Creating a Function to Find Suitable EEZ's for California Spiny Lobster - *Panulirus Interruptus*.
 
-
-## Creating Function to Find Suitable EEZ's for California Spiny Lobster - Panulirus Interruptus.
-
-After processing the data, create a generalizable function that takes the arguments of minimum temperature, maximum temperature, maximum depth, minimum depth, and species. This function will identify areas suitable for any species within each EEZ and rank them accordingly. The following code produces the same map as above for the California Spiny Lobster - Panulirus interruptus which occupies habitat between 0-150 meters below sea level and between 12-24°C. ^4^
+After processing the data, a generalizable function will be created that accepts minimum temperature, maximum temperature, minimum depth, maximum depth, and species as arguments. The function will identify areas suitable for any species within each EEZ and rank them accordingly. The code below produces the same table and map as above for the California spiny lobster (*Panulirus interruptus*), which occupies habitat between 0–150 m below sea level and 12–24 °C.⁷
 
 ```{r, warning = FALSE, message = FALSE,  results='asis'}
 suitable_habitat <- function(mintemp, maxtemp, maxdepth, mindepth, species_name) { 
@@ -334,11 +355,19 @@ suitable_habitat(12, 24, -150, 0, "Panulirus interruptus")
 
 ```
 
-Discussion of conclusions, including any potential caveats or future directions
+## Interpretation of Results 
 
-## Panulirus interruptus Ranked Aquaculture Zones
+### Oyster Ranked Aquaculture Zones
 
-The table and accompanying maps collectively illustrate the distribution of environmentally suitable habitat for *Panulirus interruptus* across West Coast Exclusive Economic Zones (EEZs). Southern California contains by far the largest extent of suitable area (approximately 7,021 km²), followed by Central California with roughly 3,630 km². Oregon and Washington exhibit substantially smaller areas of suitable habitat—about 585 km² and 248 km², respectively—while Northern California shows no suitable habitat under the modeled conditions.
+The table and map together illustrate the spatial distribution of suitable habitat for oysters across West Coast Exclusive Economic Zones (EEZs). Central California contains the largest extent of suitable area, totaling approximately 3,657 km². Southern California follows with about 3,062 km². Washington and Oregon exhibit more moderate levels of suitable habitat—roughly 2,436 km² and 1,029 km², respectively—while Northern California shows the smallest area at approximately 194 km².
+
+### *Panulirus interruptus* Ranked Aquaculture Zones
+
+The table and accompanying map illustrate the distribution of environmentally suitable habitat for *Panulirus interruptus* across West Coast Exclusive Economic Zones (EEZs). Southern California contains by far the largest extent of suitable area (approximately 7,021 km²), followed by Central California with roughly 3,630 km². Oregon and Washington exhibit substantially smaller areas of suitable habitat—about 585 km² and 248 km², respectively—while Northern California shows no suitable habitat under the modeled conditions.
+
+### Caveats 
+
+The calculated suitable area assumes that the SST and depth rasters perfectly represent current conditions and that the chosen thresholds are sufficient for growth. Other relevant factors such as seasonal variability, water quality, substrate type, and current action are not accounted for. As such, the results should be treated as a preliminary suitability estimate rather than a definitive site‑selection map. Further analysis incorporating different data relevant to the life history of a certain species should be considered. 
 
 **References**:
 
@@ -348,4 +377,12 @@ The table and accompanying maps collectively illustrate the distribution of envi
 
 \[3\] Carole R Engle, Jonathan van Senten, Quentin Fong, Melissa Good, The economic contribution of aquaculture to the U.S. Western Region, *North American Journal of Aquaculture*, Volume 87, Issue 3, July 2025, Pages 155–167, <https://doi.org/10.1093/naaqua/vraf008>
 
-\[4\] Sealifebase. (2025). *Panulirus interruptus* (California spiny lobster). <https://www.sealifebase.ca/summary/Panulirus-interruptus.html>
+\[4\] National Oceanic and Atmospheric Administration. (n.d.). *Exclusive economic zones (EEZs)*. NOAA Ocean Service. Retrieved December 12, 2025, from <https://oceanservice.noaa.gov/facts/eez.html>
+
+\[5\] NOAA Coral Reef Watch. 2019, updated daily. *NOAA Coral Reef Watch Version 3.1 Daily 5km Satellite Regional Virtual Station Time Series Data for Southeast Florida*, Mar. 12, 2013-Mar. 11, 2014. College Park, Maryland, USA: NOAA Coral Reef Watch. Data set accessed 2025-12-11 at https://coralreefwatch.noaa.gov/product/vs/data.php.
+
+\[6\] GEBCO Compilation Group (2022) GEBCO_2022 Grid (doi:10.5285/e0f0bb80-ab44-2739-e053-6c86abc0289c)
+
+\[7\] Marine Regions. (n.d.). *Exclusive Economic Zones (EEZ)*. Retrieved December 11, 2025, from <https://www.marineregions.org/eez.php>
+
+\[8\] Sealifebase. (2025). *Panulirus interruptus* (California spiny lobster). <https://www.sealifebase.ca/summary/Panulirus-interruptus.html>
